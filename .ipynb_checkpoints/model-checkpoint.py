@@ -21,30 +21,44 @@ testDf = test.merge(testLabel, on="PassengerId")
 df = copy.deepcopy(original)
 
 df = process_data(df)
+testDf = process_data(testDf)
 X_train, Y_train, X_test = create_splits(df, "Age")
+X_train_2, Y_train_2, X_test_2 = create_splits(testDf, "Age")
 model = train_model(X_train, Y_train)
 df.shape
+testDf.shape
 df = impute_age(df, "Age", X_test, model)
+testDf = impute_age(testDf, "Age", X_test_2, model)
 df = remove_duplicates(df)
+# testDf = remove_duplicates(testDf)
 
 cols = ['SibSp', "Parch"]
 box_plot(df, cols)
 df['SibSp'].value_counts()
 df['Parch'].value_counts()
 dist_plot(df, cols)
+lower_limit, upper_limit = calc_iqr(df, "SibSp")
+lower_limit, upper_limit
 upper_limit = np.percentile(df['SibSp'], 97.5)
 upper_limit
 valuesToBeCapped = np.where(df["SibSp"]>upper_limit)[0]
+valuesToBeCapped_test = np.where(testDf["SibSp"]>upper_limit)[0]
 df.loc[valuesToBeCapped, "SibSp"] = 4
+testDf.loc[valuesToBeCapped_test, "SibSp"] = 4
 lower_limit, upper_limit = calc_iqr(df, "Parch")
 lower_limit, upper_limit
 upper_limit = np.percentile(df['Parch'], 98.5)
 upper_limit
 valuesToBeCapped = np.where(df["Parch"]>upper_limit)[0]
+valuesToBeCapped_test = np.where(testDf["Parch"]>upper_limit)[0]
 df.loc[valuesToBeCapped, "Parch"] = 4
+testDf.loc[valuesToBeCapped_test, "Parch"] = 4
+# df[df["Parch"]>upper_limit]
 
 df['Fare Per Person'] = df["Fare"]/(df["SibSp"]+df['Parch'] + 1)
+testDf['Fare Per Person'] = testDf["Fare"]/(testDf["SibSp"]+testDf['Parch'] + 1)
 df = transform_log(df, 'Fare Per Person')
+testDf = transform_log(testDf, 'Fare Per Person')
 col = ['Log_transformed_Fare Per Person']
 box_plot(df, col)
 dist_plot(df, col)
@@ -58,10 +72,13 @@ lower_limit, upper_limit
 data.shape
 data = data[(data[col] < upper_limit)]
 data.reset_index(drop = True, inplace = True)
+testDf = testDf[(testDf[col] < upper_limit)]
+testDf.reset_index(drop = True, inplace = True)
 print(data)
 
 # Outliers Confirmed in Fare.
 data = transform_log(data, 'Fare')
+testDf = transform_log(testDf, 'Fare')
 col = 'Log_transformed_Fare'
 data.shape
 # lower_limit, upper_limit = calc_iqr(data, col)
@@ -73,6 +90,7 @@ data.shape
 # valuesToBeCapped
 # data.loc[valuesToBeCapped, "Fare"] = np.exp(upper_limit)
 data = data[data['Fare'] >= 4]
+# testDf = testDf[testDf['Fare'] >= 4]
 print(data[(data[col] > upper_limit)])
 
 # Outliers Confirmed in Age.
@@ -85,22 +103,28 @@ cappedValue = meanD + 3*stanD
 lower_limit, upper_limit = calc_iqr(data, "Age")
 upper_limit
 valuesToBeCapped = np.where(data[col] > 65)[0]
+# valuesToBeCapped_test = np.where(testDf[col] > 65)[0]
 valuesToBeCapped
 data.loc[valuesToBeCapped, "Age"] = cappedValue
+# testDf.loc[valuesToBeCapped_test, "Age"] = cappedValue
 
 # One Hot Encoding for Gender and Cities
 new_data = copy.deepcopy(data)
 new_data
 new_data = pd.get_dummies(new_data, columns= ["Embarked", "Sex"])
+testDf = pd.get_dummies(testDf, columns= ["Embarked", "Sex"])
 new_data.shape
 # 757 Rows
 
 # Getting Data Ready for Isolation Forest
 new_data = new_data.replace({True: 1, False: 0})
+testDf = testDf.replace({True: 1, False: 0})
 new_data['Pclass'] = new_data['Pclass'].replace({3: 1, 1:3})
+testDf['Pclass'] = testDf['Pclass'].replace({3: 1, 1:3})
 cols = [col for col in new_data.columns if "Log" in col]
 print(cols)
 new_data.drop(cols, axis = 1, inplace = True)
+testDf.drop(cols, axis = 1, inplace = True)
 new_data.shape
 # 757 rows
 
@@ -119,14 +143,18 @@ new_data.reset_index(drop = True, inplace= True)
 new_data
 cols = ["Sex", "Embarked"]
 reverse_one_hot(new_data, cols)
+reverse_one_hot(testDf, cols)
 
 # Removing Anomaly Colums and adding based on knowledge
 cols = ['Anomaly Score', "Anomaly"]
 new_data.drop(cols, inplace = True, axis = 1)
 # I am going to remove SibSp, and Fare per person as SibSp p value was against it and i think log will perform better as its results were more statistically significant
 new_data['Total People'] = new_data["Parch"] + new_data["SibSp"] + 1
+testDf['Total People'] = testDf["Parch"] + testDf["SibSp"] + 1
 new_data = transform_log(new_data, "Fare Per Person")
+testDf = transform_log(testDf, "Fare Per Person")
 new_data.drop(inplace=True, axis = 0, columns = ['Fare Per Person', 'SibSp'])
+testDf.drop(inplace=True, axis = 0, columns = ['Fare Per Person', 'SibSp'])
 # Feature Selection 
 # I am going to use Partial, Full Corelations and mutual information to determine which features I will use.
 # Reversing one hot encoding to analyze the data
@@ -155,16 +183,20 @@ plt.show()
 # Encoding
 cols = ["Sex", "Embarked"]
 encoded_data = pd.get_dummies(data = new_data, columns = cols)
+encoded_data_test = pd.get_dummies(data = testDf, columns = cols)
 
 # Splitting the data
 X_train = encoded_data.drop("Survived", axis = 1)
 Y_train = encoded_data['Survived']
+Y_test = encoded_data_test['Survived']
+X_test = encoded_data_test.drop("Survived", axis = 1)
 model = LGBMClassifier(metric = "rmse")
 model.fit(X_train, Y_train)
 y_train = model.predict(X_train)
+y_test = model.predict(X_test)
 print(np.sqrt(mse(Y_train, y_train)))
 
-cv_scores = cross_val_score(model, X_train, Y_train, cv=5, scoring='accuracy')
+cv_scores = cross_val_score(model, X_train, y_train, cv=5, scoring='accuracy')
 
 print("Cross-Validation Accuracy:", np.mean(cv_scores))
 

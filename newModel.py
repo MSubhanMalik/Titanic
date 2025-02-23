@@ -87,6 +87,7 @@ upper_limit
 valuesToBeCapped = np.where(data[col] > 65)[0]
 valuesToBeCapped
 data.loc[valuesToBeCapped, "Age"] = cappedValue
+data = data[data['Age']>=0]
 
 # One Hot Encoding for Gender and Cities
 new_data = copy.deepcopy(data)
@@ -106,7 +107,7 @@ new_data.shape
 
 # Multivariate Outliers 
 anomaly_data = copy.deepcopy(new_data)
-model = IsolationForest(n_estimators= 100, contamination=0.03, random_state=42)
+model = IsolationForest(n_estimators= 100, contamination=0.015, random_state=42)  # .804 .806
 model.fit(anomaly_data)
 new_data['Anomaly Score'] = model.decision_function(anomaly_data)
 new_data["Anomaly"] = model.predict(anomaly_data)
@@ -167,48 +168,3 @@ print(np.sqrt(mse(Y_train, y_train)))
 cv_scores = cross_val_score(model, X_train, Y_train, cv=5, scoring='accuracy')
 
 print("Cross-Validation Accuracy:", np.mean(cv_scores))
-
-# Preprocessing the test data
-
-
-# 1st Class: $30 – $512 (Expensive, luxurious cabins)
-# 2nd Class: $13 – $73 (Mid-range, comfortable)
-# 3rd Class: $7 – $40 (Budget, basic accommodations)
-
-# Data is divided into mixed data types, therefore using MD or One SVM is not useful. We will use method like like quantile and isolation forests to detect outliers. We can use other algorithms and methods to fill in empty values. I have used LGBM Linear regression model as its results were multivariate and reasonable. Another thing is that I have applied Complete Case Analysis to remove features and rows with null values. In order to not effect the performance of Isolation forest, I will use One Hot Encoding. I will remove extreme outliers in uni variate
-
-# After using box plot, I can clearly see, that most univariate outliers lie in Fare, Age, Parch and SibSp
-
-# normal distribution is only in univariate Age column, only in that we can use z-score. Skewed is seen in Fare and others are categorical
-
-# We will remove the extreme outliers and cap the normal outliers which we will believe to be removed by Isolation Forest
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Very Dangerous Method - It seems to 
-# for col in cols:
-#     stanD = 3*df[col].std()
-#     mean = df[col].mean()
-#     upperLimit = mean + stanD
-#     df[col] = df[col].clip(upper = upperLimit)
-        
-# df
-# box_plot(df, cols)
-# Using Linear Regression to impute Values for age
